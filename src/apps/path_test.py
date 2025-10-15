@@ -10,6 +10,7 @@ Features:
 """
 
 import argparse
+import math
 import sys
 import time
 from typing import Optional, List
@@ -22,6 +23,7 @@ from core.robot import create_robot
 from core.track import Track, TrackGenerator
 from core.path_follower import PathFollower
 from core.path_visualizer import PathFollowingDebugUI
+from core.orientation_calibrator import OrientationCalibrator
 from tracking.robot_config import RobotManager
 
 
@@ -34,6 +36,7 @@ class PathTestApp:
         self.track = None
         self.follower = None
         self.robot_manager = None  # For real robot tracking
+        self.calibrator = None  # For orientation calibration
     
     def setup(self) -> None:
         """Set up the application."""
@@ -76,6 +79,42 @@ class PathTestApp:
             
             self.robot = self.robot_manager.create_robot(self.args.robot_name)
             print(f"  Robot ready! Position updates will come from OptiTrack.")
+            
+            # Perform orientation calibration for real robots
+            if not self.args.skip_calibration:
+                print("\nPerforming orientation calibration...")
+                self.calibrator = OrientationCalibrator(
+                    calibration_distance=self.args.calibration_distance,
+                    settling_time=self.args.calibration_settling_time
+                )
+                
+                # Check if we should load previous calibration
+                calibration_file = Path(f".calibration_{self.args.robot_name}.json")
+                if calibration_file.exists() and not self.args.force_calibration:
+                    print(f"Found existing calibration file: {calibration_file}")
+                    if self.calibrator.load_calibration(str(calibration_file)):
+                        print(f"  Loaded calibration: offset = {self.calibrator.get_offset():.4f} rad "
+                              f"({math.degrees(self.calibrator.get_offset()):.2f}°)")
+                        user_input = input("Use this calibration? (y/n, default=y): ").strip().lower()
+                        if user_input not in ['n', 'no']:
+                            # Use loaded calibration
+                            self.robot.set_orientation_calibration(
+                                self.calibrator.get_offset(), 
+                                enabled=True
+                            )
+                            print("Using loaded calibration.")
+                        else:
+                            # Run new calibration
+                            self._run_calibration(calibration_file)
+                    else:
+                        # Failed to load, run new calibration
+                        self._run_calibration(calibration_file)
+                else:
+                    # No existing calibration or forced recalibration
+                    self._run_calibration(calibration_file)
+            else:
+                print("\nSkipping orientation calibration (--skip-calibration flag set)")
+                print("WARNING: Movement commands may not align with OptiTrack coordinates!")
         else:
             # Use dummy robot for simulation
             print("Creating dummy robot (simulation mode)")
@@ -115,7 +154,28 @@ class PathTestApp:
         
         if self.args.offset != 0.0:
             print(f"  Lane offset: {self.args.offset:+.2f}m")
-
+    
+    def _run_calibration(self, calibration_file: Path) -> None:
+        """Run orientation calibration and save results."""
+        print("\nWaiting for OptiTrack position to stabilize...")
+        time.sleep(2.0)  # Give OptiTrack time to get good position data
+        
+        try:
+            offset = self.calibrator.calibrate(self.robot, verbose=True)
+            
+            # Apply calibration to robot
+            self.robot.set_orientation_calibration(offset, enabled=True)
+            
+            # Save calibration
+            self.calibrator.save_calibration(str(calibration_file))
+            print(f"Calibration saved to {calibration_file}")
+            
+        except RuntimeError as e:
+            print(f"\nCALIBRATION FAILED: {e}")
+            print("Continuing WITHOUT calibration. Movement may be inaccurate!")
+            user_input = input("Continue anyway? (y/n): ").strip().lower()
+            if user_input not in ['y', 'yes']:
+                raise
     
     def _generate_track(self) -> Track:
         """Generate a track based on arguments."""
@@ -246,6 +306,31 @@ def main(argv: Optional[List[str]] = None) -> int:
         type=float,
         default=0.5,
         help='Maximum speed for dummy robot (m/s)'
+    )
+    
+    # Calibration options
+    calibration_group = parser.add_argument_group('Calibration Options')
+    calibration_group.add_argument(
+        '--skip-calibration',
+        action='store_true',
+        help='Skip orientation calibration (not recommended for real robots)'
+    )
+    calibration_group.add_argument(
+        '--force-calibration',
+        action='store_true',
+        help='Force new calibration even if saved calibration exists'
+    )
+    calibration_group.add_argument(
+        '--calibration-distance',
+        type=float,
+        default=0.5,
+        help='Distance to move during calibration (meters)'
+    )
+    calibration_group.add_argument(
+        '--calibration-settling-time',
+        type=float,
+        default=2.0,
+        help='Time to wait for robot movement during calibration (seconds)'
     )
     
     # Control options

@@ -36,7 +36,8 @@ SwarmProject/
 │   │   ├── dummy_robot.py   # Simulated robot
 │   │   ├── track.py         # Track data structures
 │   │   ├── path_follower.py # Path following logic
-│   │   └── path_visualizer.py # Real-time UI
+│   │   ├── path_visualizer.py # Real-time UI
+│   │   └── orientation_calibrator.py # Coordinate system calibration
 │   ├── tracking/            # External tracking support
 │   │   ├── robot_tracker.py # UDP listener for OptiTrack
 │   │   └── robot_config.py  # Configuration manager
@@ -72,6 +73,7 @@ SwarmProject/
 - Infinite looping on circular tracks
 - Intersection handling (figure-8)
 - Real-time offset adjustment (keyboard controls)
+- Automatic orientation calibration for real robots
 
 ## Common Commands
 
@@ -154,6 +156,7 @@ See `docs/` directory for detailed documentation:
 
 - `QUICK_START.md` - 5-minute quick reference
 - `REAL_ROBOT_GUIDE.md` - Complete guide for real robots
+- `ORIENTATION_CALIBRATION.md` - Orientation calibration guide
 - `PATH_TESTING_README.md` - Detailed feature documentation
 - `PACKET_FORMAT_FIX.md` - OptiTrack packet format details
 
@@ -189,6 +192,11 @@ Port is already in use - change port in config or stop other process
 ### UI not showing robot movement
 - For **dummy robots**: Check track is generated correctly
 - For **real robots**: Verify OptiTrack is sending position updates (check UI shows robot type as "Real")
+
+### Robot moves in wrong direction
+- Run orientation calibration (happens automatically with real robots)
+- Use `--force-calibration` to recalibrate
+- See `docs/ORIENTATION_CALIBRATION.md` for details
 
 ## License
 
