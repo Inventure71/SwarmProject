@@ -62,7 +62,7 @@ class Robot(RobotInterface):
         self._ready = True
         self.robot_ip = robot_ip
 
-        self.mecanum = False # TODO: Make this configurable
+        self.mecanum = True # TODO: Make this configurable
 
         context = zmq.Context()
         self.socket = context.socket(zmq.PUSH)
@@ -104,6 +104,8 @@ class Robot(RobotInterface):
         with self.lock:
             self.last_dx = 0.0
             self.last_dy = 0.0
+        # Send stop command to robot hardware
+        self.send_command_json(json.dumps({"command": "stop"}))
     
     def shutdown(self) -> None:
         """Shutdown robot."""

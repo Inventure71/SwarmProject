@@ -7,6 +7,7 @@ import math
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.patches import FancyArrow
+from matplotlib.widgets import Button
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -41,6 +42,9 @@ class PathFollowingDebugUI:
         # Offset control
         self.offset_step = 0.1  # meters per key press
         
+        # Emergency stop state
+        self.emergency_stopped = False
+        
         # Set up the plot
         self.fig, self.ax = plt.subplots(figsize=(10, 10))
         self.ax.set_aspect('equal')
@@ -51,6 +55,9 @@ class PathFollowingDebugUI:
         
         # Plot elements
         self._setup_plot_elements()
+        
+        # Add emergency stop button (top right)
+        self._setup_emergency_stop_button()
         
         # Connect keyboard events
         self.fig.canvas.mpl_connect('key_press_event', self._on_key_press)
@@ -108,6 +115,37 @@ class PathFollowingDebugUI:
         self.ax.set_ylim(min(all_y) - padding, max(all_y) + padding)
         
         self.ax.legend(loc='upper right')
+    
+    def _setup_emergency_stop_button(self) -> None:
+        """Set up emergency stop button in top right corner."""
+        # Create axis for button in top right corner
+        # [left, bottom, width, height] in figure coordinates
+        ax_button = plt.axes([0.85, 0.92, 0.12, 0.05])
+        self.stop_button = Button(ax_button, 'STOP', color='red', hovercolor='darkred')
+        self.stop_button.label.set_color('white')
+        self.stop_button.label.set_weight('bold')
+        self.stop_button.on_clicked(self._on_emergency_stop)
+    
+    def _on_emergency_stop(self, event) -> None:
+        """Handle emergency stop button click."""
+        if not self.emergency_stopped:
+            self.emergency_stopped = True
+            print("\n⚠️  EMERGENCY STOP ACTIVATED ⚠️")
+            # Send stop command to robot
+            if hasattr(self.follower.robot, 'stop'):
+                self.follower.robot.stop()
+                print("Stop command sent to robot")
+            # Change button appearance
+            self.stop_button.color = 'darkred'
+            self.stop_button.label.set_text('STOPPED')
+            self.fig.canvas.draw_idle()
+        else:
+            # Allow resuming by clicking again
+            self.emergency_stopped = False
+            print("✓ Emergency stop cleared - resuming")
+            self.stop_button.color = 'red'
+            self.stop_button.label.set_text('STOP')
+            self.fig.canvas.draw_idle()
     
     def _on_key_press(self, event) -> None:
         """Handle keyboard input for offset control."""
