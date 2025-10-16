@@ -31,9 +31,9 @@ class RobotTracker:
         self._should_exit = threading.Event()
         self._threads = []
 
-        self.x_offset = -180
-        self.y_offset = -200
-        self.scale_factor = 1/20
+        self.x_offset = -250 #-180
+        self.y_offset = -200 #-200
+        self.scale_factor = 1/40
 
     def _listener_thread(self, robot_name: str, port: int, host: str = "0.0.0.0"):
         """
